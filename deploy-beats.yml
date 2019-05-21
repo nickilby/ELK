@@ -1,0 +1,75 @@
+- hosts: ubuntu-servers
+#  gather_facts: no
+  tasks:
+
+  - name: Get environment variables
+    include_vars: "{{ vars_file }}"
+
+  - name: Add elastic Beats repository key
+    become: yes
+    apt_key:
+      url: https://packages.elastic.co/GPG-KEY-elasticsearch
+      state: present
+
+  - name: Add elastic packages repository
+    become: yes
+    apt_repository:
+      repo: "deb https://packages.elastic.co/beats/apt stable main"
+      state: present
+
+  - name: Add elastic artifacts repository
+    become: yes
+    apt_repository:
+      repo: "deb https://artifacts.elastic.co/packages/6.x/apt stable main"
+      state: present
+
+  - name: Install Beats
+    become: yes
+    apt:
+      name:
+        - apt-transport-https
+        - metricbeat
+        - filebeat
+        - packetbeat
+      update_cache: yes
+      state: present
+
+  - name: Configure Metricbeat
+    become: yes
+    lineinfile:
+      dest: "/etc/metricbeat/metricbeat.yml"
+      backrefs: yes
+      regexp: "{{ item.regexp }}"
+      line: "{{ item.line }}"
+    with_items:
+      - { regexp: '^([ ]*hosts:)', line: '\1 ["elastic_address:9200"]' }
+
+  - name: Configure Filebeat
+    become: yes
+    lineinfile:
+      dest: "/etc/filebeat/filebeat.yml"
+      backrefs: yes
+      regexp: "{{ item.regexp }}"
+      line: "{{ item.line }}"
+    with_items:
+      - { regexp: '^([ ]*hosts:)', line: '\1 ["elastic_address:9200"]' }
+
+  - name: Configure Packetbeat
+    become: yes
+    lineinfile:
+      dest: "/etc/packetbeat/packetbeat.yml"
+      backrefs: yes
+      regexp: "{{ item.regexp }}"
+      line: "{{ item.line }}"
+    with_items:
+      - { regexp: '^([ ]*hosts:)', line: '\1 ["elastic_address:9200"]' }
+
+  - name: Ensure Beats are started
+    become: yes
+    service:
+      name: "{{ item }}"
+      state: restarted
+    with_items:
+      - metricbeat
+      - filebeat
+      - packetbeat
